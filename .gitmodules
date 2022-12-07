@@ -10,3 +10,6 @@
 [submodule "qtsvg"]
 	path = qtsvg
 	url = https://github.com/qt/qtsvg
+[submodule "qttools"]
+	path = qttools
+	url = https://github.com/qt/qttools
