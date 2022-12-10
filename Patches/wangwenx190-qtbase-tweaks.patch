@@ -1,4 +1,4 @@
-From 424c0e18f7345a28a976078c82d46d3e34e9aa28 Mon Sep 17 00:00:00 2001
+From a1bd76447246a30be2e78a13f298a5cba814facd Mon Sep 17 00:00:00 2001
 From: Yuhang Zhao <2546789017@qq.com>
 Date: Fri, 17 Jun 2022 20:33:03 +0800
 Subject: [PATCH] wangwenx190: Custom tweaks
@@ -22,7 +22,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  cmake/QtBaseGlobalTargets.cmake               |    1 +
  cmake/QtBuild.cmake                           |    7 +
  cmake/QtCompilerOptimization.cmake            |   15 +-
- cmake/QtInternalTargets.cmake                 |    6 +-
+ cmake/QtInternalTargets.cmake                 |   23 +-
  cmake/VC-LTL.cmake                            |   94 +
  src/corelib/CMakeLists.txt                    |    2 +
  src/corelib/global/qlibraryinfo.cpp           |   20 +-
@@ -104,6 +104,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  .../platforms/offscreen/qoffscreenwindow.h    |   49 -
  src/plugins/platforms/windows/CMakeLists.txt  |    2 +
  .../platforms/windows/qwin10helpers.cpp       |   39 +-
+ .../platforms/windows/qwindowsapplication.cpp |   12 +-
  .../platforms/windows/qwindowscontext.cpp     |  190 +-
  .../platforms/windows/qwindowscontext.h       |  104 +-
  .../platforms/windows/qwindowsdrag.cpp        |    7 +-
@@ -111,8 +112,8 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  .../platforms/windows/qwindowskeymapper.cpp   |   18 +-
  .../windows/qwindowspointerhandler.cpp        |   25 +-
  .../platforms/windows/qwindowsscreen.cpp      |   45 +-
- .../platforms/windows/qwindowstheme.cpp       |  138 +-
- .../platforms/windows/qwindowswindow.cpp      |   76 +-
+ .../platforms/windows/qwindowstheme.cpp       |  135 +-
+ .../platforms/windows/qwindowswindow.cpp      |   95 +-
  .../uiautomation/qwindowsuiaaccessibility.cpp |    9 +-
  .../uiautomation/qwindowsuiabaseprovider.h    |    4 +-
  .../uiautomation/qwindowsuiamainprovider.cpp  |   53 +-
@@ -122,7 +123,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  src/tools/rcc/main.cpp                        |    7 +-
  src/tools/rcc/rcc.cpp                         |    8 +-
  src/widgets/dialogs/qwizard_win.cpp           |    9 +-
- 103 files changed, 1231 insertions(+), 7699 deletions(-)
+ 104 files changed, 1254 insertions(+), 7721 deletions(-)
  create mode 100644 cmake/VC-LTL.cmake
  create mode 100644 src/corelib/thread/qmutex_win.cpp
  delete mode 100644 src/gui/accessible/windows/apisupport/qwindowsuiawrapper.cpp
@@ -193,7 +194,7 @@ index ac3b63a874..ac79b3db05 100644
                     cmake/modulecppexports_p.h.in
                     cmake/qbatchedtestrunner.in.cpp
 diff --git a/cmake/QtBuild.cmake b/cmake/QtBuild.cmake
-index cc169a5ab9..545f0f1f0f 100644
+index 7f87cf71b1..840ae858b9 100644
 --- a/cmake/QtBuild.cmake
 +++ b/cmake/QtBuild.cmake
 @@ -573,3 +573,10 @@ _qt_internal_generate_tool_command_wrapper()
@@ -239,25 +240,58 @@ index b5b49ab78a..2a756b229b 100644
 +    set(QT_CFLAGS_SSE2 "-O2 -msimd128 -msse -msse2")
  endif()
 diff --git a/cmake/QtInternalTargets.cmake b/cmake/QtInternalTargets.cmake
-index dc45b57eec..c5015e98ef 100644
+index dc45b57eec..b7cc0a14ad 100644
 --- a/cmake/QtInternalTargets.cmake
 +++ b/cmake/QtInternalTargets.cmake
-@@ -260,12 +260,12 @@ if (MSVC)
+@@ -253,6 +253,11 @@ if (MSVC)
+             #-Zc:preprocessor # breaks build due to bug in default Windows SDK 10.0.19041
+         )
+     endif()
++    if (MSVC_VERSION GREATER_EQUAL 1925 AND NOT CLANG) # Visual Studio 2019 version 16.5
++        target_compile_options(PlatformCommonInternal INTERFACE
++            $<$<NOT:$<CONFIG:Debug>>:-QIntel-jcc-erratum>
++        )
++    endif()
+ 
+     target_compile_options(PlatformCommonInternal INTERFACE
+         -Zc:wchar_t
+@@ -260,13 +265,19 @@ if (MSVC)
      )
  
      target_compile_options(PlatformCommonInternal INTERFACE
 -        $<$<NOT:$<CONFIG:Debug>>:-guard:cf -Gw>
-+        $<$<NOT:$<CONFIG:Debug>>:-fp:fast -guard:cf -QIntel-jcc-erratum -GF -GT -Gw -Gy> # -GA for executables.
++        $<$<NOT:$<CONFIG:Debug>>:-fp:fast -guard:cf -GF -GT -Gw -Gy> # -GA for executables.
      )
  
      target_link_options(PlatformCommonInternal INTERFACE
--        -DYNAMICBASE -NXCOMPAT -LARGEADDRESSAWARE
+         -DYNAMICBASE -NXCOMPAT -LARGEADDRESSAWARE
 -        $<$<NOT:$<CONFIG:Debug>>:-OPT:REF -OPT:ICF -GUARD:CF>
-+        -DYNAMICBASE -NXCOMPAT -LARGEADDRESSAWARE -HIGHENTROPYVA
 +        $<$<NOT:$<CONFIG:Debug>>:-OPT:REF -OPT:ICF -OPT:LBR -GUARD:CF>
      )
++
++    if(TEST_architecture_arch STREQUAL "x86_64")
++        target_link_options(PlatformCommonInternal INTERFACE
++            -HIGHENTROPYVA
++        )
++    endif()
  endif()
  
+ if(MINGW)
+@@ -279,9 +290,11 @@ endif()
+ 
+ if(QT_FEATURE_intelcet)
+     if(MSVC)
+-        target_link_options(PlatformCommonInternal INTERFACE
+-            -CETCOMPAT
+-        )
++        if(MSVC_VERSION GREATER_EQUAL 1920) # Visual Studio 2019 version 16.0
++            target_link_options(PlatformCommonInternal INTERFACE
++                -CETCOMPAT
++            )
++        endif()
+     else()
+         target_compile_options(PlatformCommonInternal INTERFACE
+             -fcf-protection=full
 diff --git a/cmake/VC-LTL.cmake b/cmake/VC-LTL.cmake
 new file mode 100644
 index 0000000000..2bab2f21d6
@@ -359,10 +393,10 @@ index 0000000000..2bab2f21d6
 +    include("${VC_LTL_Root}\\config\\config.cmake")
 +endif()
 diff --git a/src/corelib/CMakeLists.txt b/src/corelib/CMakeLists.txt
-index 1d758a7482..a7631e6889 100644
+index 8fc301e27f..ce803de948 100644
 --- a/src/corelib/CMakeLists.txt
 +++ b/src/corelib/CMakeLists.txt
-@@ -538,6 +538,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_animation
+@@ -540,6 +540,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_animation
  # from the wrong DLL at runtime and crash!
  qt_internal_extend_target(Core CONDITION QT_FEATURE_thread AND WIN32
      SOURCES
@@ -370,7 +404,7 @@ index 1d758a7482..a7631e6889 100644
          thread/qwaitcondition_win.cpp
      LIBRARIES
          synchronization
-@@ -1311,6 +1312,7 @@ qt_internal_extend_target(Core CONDITION WASM
+@@ -1320,6 +1321,7 @@ qt_internal_extend_target(Core CONDITION WASM
  set_source_files_properties(
      thread/qmutex_mac.cpp
      thread/qmutex_unix.cpp
@@ -379,7 +413,7 @@ index 1d758a7482..a7631e6889 100644
  
  
 diff --git a/src/corelib/global/qlibraryinfo.cpp b/src/corelib/global/qlibraryinfo.cpp
-index 64fc9fff01..868d862ff0 100644
+index 715bda488c..6973de9d76 100644
 --- a/src/corelib/global/qlibraryinfo.cpp
 +++ b/src/corelib/global/qlibraryinfo.cpp
 @@ -296,8 +296,13 @@ static QString prefixFromQtCoreLibraryHelper(const QString &qtCoreLibraryPath)
@@ -417,12 +451,12 @@ index 64fc9fff01..868d862ff0 100644
  
  bool qSharedBuild() noexcept
 diff --git a/src/corelib/global/qlibraryinfo.h b/src/corelib/global/qlibraryinfo.h
-index 71d9a01308..d3098daaa3 100644
+index d4e8f8b050..6cd0b448cf 100644
 --- a/src/corelib/global/qlibraryinfo.h
 +++ b/src/corelib/global/qlibraryinfo.h
-@@ -82,6 +82,11 @@ extern "C"
+@@ -61,6 +61,11 @@ Q_CORE_EXPORT Q_DECL_CONST_FUNCTION bool qSharedBuild() noexcept;
+ 
  #endif
- Q_CORE_EXPORT Q_DECL_CONST_FUNCTION const char *qVersion(void) Q_DECL_NOEXCEPT;
  
 +#if (!defined(QT_NAMESPACE) && defined(__cplusplus))
 +extern "C"
@@ -541,10 +575,10 @@ index a209fb17b6..5fa500b4dc 100644
                  // If the current host OS is a domain controller and the override OS
                  // is also a server type OS, preserve that information
 diff --git a/src/corelib/global/qsysinfo.cpp b/src/corelib/global/qsysinfo.cpp
-index 8ddcbb0409..85bcdf6cf8 100644
+index 9df9d96b5e..95bcb1a936 100644
 --- a/src/corelib/global/qsysinfo.cpp
 +++ b/src/corelib/global/qsysinfo.cpp
-@@ -163,12 +163,17 @@ static inline QString windowsDisplayVersion()
+@@ -165,12 +165,17 @@ static inline QString windowsDisplayVersion()
  {
      // https://tickets.puppetlabs.com/browse/FACT-3058
      // The "ReleaseId" key stopped updating since Windows 10 20H2.
@@ -563,7 +597,7 @@ index 8ddcbb0409..85bcdf6cf8 100644
  static QString winSp_helper()
  {
      const auto osv = qWindowsVersionInfo();
-@@ -192,6 +197,12 @@ static const char *osVer_helper(QOperatingSystemVersion version = QOperatingSyst
+@@ -194,6 +199,12 @@ static const char *osVer_helper(QOperatingSystemVersion version = QOperatingSyst
  
  #define Q_WINVER(major, minor) (major << 8 | minor)
      switch (Q_WINVER(osver.dwMajorVersion, osver.dwMinorVersion)) {
@@ -576,7 +610,7 @@ index 8ddcbb0409..85bcdf6cf8 100644
      case Q_WINVER(10, 0):
          if (workstation) {
              if (osver.dwBuildNumber >= 22000)
-@@ -883,10 +894,21 @@ QString QSysInfo::prettyProductName()
+@@ -885,10 +896,21 @@ QString QSysInfo::prettyProductName()
      return result + " ("_L1 + versionString + u')';
  #  else
      // (resembling winver.exe): Windows 10 "Windows 10 Version 1809"
@@ -9317,6 +9351,36 @@ index 026e81cb0c..6131031987 100644
                                                     reinterpret_cast<void **>(&uiViewSettingsInterop));
      if (FAILED(hr))
          return false;
+diff --git a/src/plugins/platforms/windows/qwindowsapplication.cpp b/src/plugins/platforms/windows/qwindowsapplication.cpp
+index 5d1b6d348b..bfef10e673 100644
+--- a/src/plugins/platforms/windows/qwindowsapplication.cpp
++++ b/src/plugins/platforms/windows/qwindowsapplication.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include <QtCore/qvariant.h>
+ #include <QtCore/private/qfunctions_win_p.h>
++#include <QtCore/qoperatingsystemversion.h>
+ 
+ #include <QtGui/qpalette.h>
+ 
+@@ -181,11 +182,12 @@ void QWindowsApplication::lightSystemPalette(QPalette &result) const
+     QColor accent = getSysColor(COLOR_HIGHLIGHT);
+ 
+ #if QT_CONFIG(cpp_winrt)
+-    // respect the Windows 11 accent color
+-    using namespace winrt::Windows::UI::ViewManagement;
+-    const auto settings = UISettings();
+-
+-    accent = getSysColor(settings.GetColorValue(UIColorType::Accent));
++    if (QOperatingSystemVersion::isWin10RS5OrGreater()) {
++        // Respect the accent color on modern Windows.
++        using namespace winrt::Windows::UI::ViewManagement;
++        const auto settings = UISettings();
++        accent = getSysColor(settings.GetColorValue(UIColorType::Accent));
++    }
+ #endif
+ 
+     const QColor btnFace = background;
 diff --git a/src/plugins/platforms/windows/qwindowscontext.cpp b/src/plugins/platforms/windows/qwindowscontext.cpp
 index 3e2cb79def..9d0f06f6ee 100644
 --- a/src/plugins/platforms/windows/qwindowscontext.cpp
@@ -9764,10 +9828,10 @@ index 93205259f8..9f5f73588c 100644
              }
          } else {
 diff --git a/src/plugins/platforms/windows/qwindowsintegration.cpp b/src/plugins/platforms/windows/qwindowsintegration.cpp
-index 75d383a268..17fb3fa40f 100644
+index 1bddcb4363..b44f290c88 100644
 --- a/src/plugins/platforms/windows/qwindowsintegration.cpp
 +++ b/src/plugins/platforms/windows/qwindowsintegration.cpp
-@@ -230,8 +230,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
+@@ -229,8 +229,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
      initOpenGlBlacklistResources();
  
      static bool dpiAwarenessSet = false;
@@ -9779,7 +9843,7 @@ index 75d383a268..17fb3fa40f 100644
  
      int tabletAbsoluteRange = -1;
      DarkModeHandling darkModeHandling = DarkModeHandlingFlag::DarkModeWindowFrames;
-@@ -249,10 +251,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
+@@ -248,10 +250,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
  
      if (!dpiAwarenessSet) { // Set only once in case of repeated instantiations of QGuiApplication.
          if (!QCoreApplication::testAttribute(Qt::AA_PluginApplication)) {
@@ -9793,7 +9857,7 @@ index 75d383a268..17fb3fa40f 100644
                      dpiAwarenessSet = true;
                  } else {
                      // fallback to old API
-@@ -261,12 +263,23 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
+@@ -260,12 +262,23 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
              }
  
              if (!dpiAwarenessSet) {
@@ -10048,7 +10112,7 @@ index f15a7a870d..3f141adb23 100644
  
  /*!
 diff --git a/src/plugins/platforms/windows/qwindowstheme.cpp b/src/plugins/platforms/windows/qwindowstheme.cpp
-index 8e931b1ed8..ef5b031233 100644
+index b9d02a4374..3398668b98 100644
 --- a/src/plugins/platforms/windows/qwindowstheme.cpp
 +++ b/src/plugins/platforms/windows/qwindowstheme.cpp
 @@ -39,6 +39,7 @@
@@ -10059,17 +10123,7 @@ index 8e931b1ed8..ef5b031233 100644
  
  #include <algorithm>
  
-@@ -243,7 +244,8 @@ static void populateLightSystemBasePalette(QPalette &result)
-     QColor accent = getSysColor(COLOR_HIGHLIGHT);
- 
- #if QT_CONFIG(cpp_winrt)
--    if (QWindowsIntegration::instance()->darkModeHandling().testFlag(QWindowsApplication::DarkModeStyle)) {
-+    if (QWindowsIntegration::instance()->darkModeHandling().testFlag(QWindowsApplication::DarkModeStyle)
-+        && QOperatingSystemVersion::isWin10RS5OrGreater()) {
-         using namespace winrt::Windows::UI::ViewManagement;
-         const auto settings = UISettings();
- 
-@@ -285,41 +287,62 @@ static void populateLightSystemBasePalette(QPalette &result)
+@@ -241,41 +242,62 @@ static void populateLightSystemBasePalette(QPalette &result)
  
  static void populateDarkSystemBasePalette(QPalette &result)
  {
@@ -10165,7 +10219,7 @@ index 8e931b1ed8..ef5b031233 100644
      const QColor buttonColor = background.lighter(200);
  
      result.setColor(QPalette::All, QPalette::WindowText, foreground);
-@@ -576,25 +599,31 @@ void QWindowsTheme::refreshPalettes()
+@@ -532,25 +554,31 @@ void QWindowsTheme::refreshPalettes()
      m_palettes[MenuPalette] = new QPalette(menuPalette(*m_palettes[SystemPalette], light));
      m_palettes[MenuBarPalette] = menuBarPalette(*m_palettes[MenuPalette], light);
      if (!light) {
@@ -10214,7 +10268,7 @@ index 8e931b1ed8..ef5b031233 100644
          m_palettes[RadioButtonPalette] = new QPalette(*m_palettes[CheckBoxPalette]);
      }
  }
-@@ -652,7 +681,10 @@ void QWindowsTheme::refreshFonts()
+@@ -608,7 +636,10 @@ void QWindowsTheme::refreshFonts()
      fixedFont.setStyleHint(QFont::TypeWriter);
  
      LOGFONT lfIconTitleFont;
@@ -10226,7 +10280,7 @@ index 8e931b1ed8..ef5b031233 100644
      const QFont iconTitleFont = QWindowsFontDatabase::LOGFONT_to_QFont(lfIconTitleFont, dpi);
  
      m_fonts[SystemFont] = new QFont(QWindowsFontDatabase::systemDefaultFont());
-@@ -1085,7 +1117,7 @@ bool QWindowsTheme::useNativeMenus()
+@@ -1041,7 +1072,7 @@ bool QWindowsTheme::useNativeMenus()
  
  bool QWindowsTheme::queryDarkMode()
  {
@@ -10236,7 +10290,7 @@ index 8e931b1ed8..ef5b031233 100644
      }
      const auto setting = QWinRegistryKey(HKEY_CURRENT_USER, LR"(Software\Microsoft\Windows\CurrentVersion\Themes\Personalize)")
 diff --git a/src/plugins/platforms/windows/qwindowswindow.cpp b/src/plugins/platforms/windows/qwindowswindow.cpp
-index b2e41dca24..39fe6d7503 100644
+index b2e41dca24..9f947d1b5a 100644
 --- a/src/plugins/platforms/windows/qwindowswindow.cpp
 +++ b/src/plugins/platforms/windows/qwindowswindow.cpp
 @@ -22,6 +22,7 @@
@@ -10323,7 +10377,29 @@ index b2e41dca24..39fe6d7503 100644
      return QMargins(gap, 0, gap, gap);
  }
  
-@@ -806,7 +810,6 @@ void WindowCreationData::fromWindow(const QWindow *w, const Qt::WindowFlags flag
+@@ -786,27 +790,17 @@ void WindowCreationData::fromWindow(const QWindow *w, const Qt::WindowFlags flag
+     } else if (topLevel) {
+         if (flags & Qt::FramelessWindowHint)
+             style = WS_POPUP;                // no border
+-        else if (flags & Qt::WindowTitleHint)
+-            style = WS_OVERLAPPED;
+         else
+-            style = 0;
++            style = WS_OVERLAPPED;
+     } else {
+         style = WS_CHILD;
+     }
+ 
+-    // if (!testAttribute(Qt::WA_PaintUnclipped))
+-    // ### Commented out for now as it causes some problems, but
+-    // this should be correct anyway, so dig some more into this
+-#ifdef Q_FLATTEN_EXPOSE
+-    if (windowIsOpenGL(w)) // a bit incorrect since the is-opengl status may change from false to true at any time later on
+-        style |= WS_CLIPSIBLINGS | WS_CLIPCHILDREN; // see SetPixelFormat
+-#else
+     style |= WS_CLIPSIBLINGS | WS_CLIPCHILDREN ;
+-#endif
++
      if (topLevel) {
          if ((type == Qt::Window || dialog || tool)) {
              if (!(flags & Qt::FramelessWindowHint)) {
@@ -10331,7 +10407,7 @@ index b2e41dca24..39fe6d7503 100644
                  if (flags & Qt::MSWindowsFixedSizeDialogHint) {
                      style |= WS_DLGFRAME;
                  } else {
-@@ -834,6 +837,8 @@ void WindowCreationData::fromWindow(const QWindow *w, const Qt::WindowFlags flag
+@@ -834,13 +828,15 @@ void WindowCreationData::fromWindow(const QWindow *w, const Qt::WindowFlags flag
              if ((flags & Qt::WindowContextHelpButtonHint) && !showMinimizeButton
                  && !showMaximizeButton)
                  exStyle |= WS_EX_CONTEXTHELP;
@@ -10340,7 +10416,15 @@ index b2e41dca24..39fe6d7503 100644
          } else {
               exStyle |= WS_EX_TOOLWINDOW;
          }
-@@ -1049,9 +1054,12 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, DWORD style, DWORD exStyl
+ 
+         // make mouse events fall through this window
+         // NOTE: WS_EX_TRANSPARENT flag can make mouse inputs fall through a layered window
+-        if (flagsIn & Qt::WindowTransparentForInput)
++        if (flags & Qt::WindowTransparentForInput)
+             exStyle |= WS_EX_LAYERED | WS_EX_TRANSPARENT;
+     }
+ }
+@@ -1049,9 +1045,12 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, DWORD style, DWORD exStyl
  {
      if (!w->isTopLevel() || w->flags().testFlag(Qt::FramelessWindowHint))
          return {};
@@ -10354,7 +10438,7 @@ index b2e41dca24..39fe6d7503 100644
          qErrnoWarning("%s: AdjustWindowRectExForDpi failed", __FUNCTION__);
      }
      const QMargins result(qAbs(rect.left), qAbs(rect.top),
-@@ -1091,7 +1099,8 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, const QRect &geometry,
+@@ -1091,7 +1090,8 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, const QRect &geometry,
  {
      if (!w->isTopLevel() || w->flags().testFlag(Qt::FramelessWindowHint))
          return {};
@@ -10364,7 +10448,7 @@ index b2e41dca24..39fe6d7503 100644
          || !QWindowsContext::shouldHaveNonClientDpiScaling(w)) {
          return frameOnPrimaryScreen(w, style, exStyle);
      }
-@@ -1542,7 +1551,7 @@ void QWindowsWindow::initialize()
+@@ -1542,7 +1542,7 @@ void QWindowsWindow::initialize()
              QWindowSystemInterface::handleGeometryChange<QWindowSystemInterface::SynchronousDelivery>(w, obtainedGeometry);
          }
      }
@@ -10373,7 +10457,7 @@ index b2e41dca24..39fe6d7503 100644
  }
  
  QSurfaceFormat QWindowsWindow::format() const
-@@ -2008,7 +2017,7 @@ void QWindowsWindow::handleDpiChanged(HWND hwnd, WPARAM wParam, LPARAM lParam)
+@@ -2008,7 +2008,7 @@ void QWindowsWindow::handleDpiChanged(HWND hwnd, WPARAM wParam, LPARAM lParam)
  
  void QWindowsWindow::handleDpiChangedAfterParent(HWND hwnd)
  {
@@ -10382,7 +10466,7 @@ index b2e41dca24..39fe6d7503 100644
      const qreal scale = qreal(dpi) / qreal(savedDpi());
      setSavedDpi(dpi);
  
-@@ -2328,13 +2337,22 @@ bool QWindowsWindow::handleWmPaint(HWND hwnd, UINT message,
+@@ -2328,13 +2328,22 @@ bool QWindowsWindow::handleWmPaint(HWND hwnd, UINT message,
          return false;
      PAINTSTRUCT ps;
  
@@ -10407,7 +10491,19 @@ index b2e41dca24..39fe6d7503 100644
      // If the a window is obscured by another window (such as a child window)
      // we still need to send isExposed=true, for compatibility.
      // Our tests depend on it.
-@@ -2926,7 +2944,7 @@ void QWindowsWindow::getSizeHints(MINMAXINFO *mmi) const
+@@ -2467,11 +2476,7 @@ void QWindowsWindow::setWindowState_sys(Qt::WindowStates newState)
+ 
+     if (stateChange & Qt::WindowFullScreen) {
+         if (newState & Qt::WindowFullScreen) {
+-#ifndef Q_FLATTEN_EXPOSE
+             UINT newStyle = WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_POPUP;
+-#else
+-            UINT newStyle = WS_POPUP;
+-#endif
+             // Save geometry and style to be restored when fullscreen
+             // is turned off again, since on Windows, it is not a real
+             // Window state but emulated by changing geometry and style.
+@@ -2926,7 +2931,7 @@ void QWindowsWindow::getSizeHints(MINMAXINFO *mmi) const
              mmi->ptMaxPosition.x = availablePositionDiff.x();
              mmi->ptMaxPosition.y = availablePositionDiff.y();
              if (!m_data.flags.testFlag(Qt::FramelessWindowHint)) {
@@ -10416,7 +10512,7 @@ index b2e41dca24..39fe6d7503 100644
                  mmi->ptMaxSize.x += borderWidth * 2;
                  mmi->ptMaxSize.y += borderWidth * 2;
                  mmi->ptMaxTrackSize = mmi->ptMaxSize;
-@@ -2967,7 +2985,7 @@ bool QWindowsWindow::handleNonClientHitTest(const QPoint &globalPos, LRESULT *re
+@@ -2967,7 +2972,7 @@ bool QWindowsWindow::handleNonClientHitTest(const QPoint &globalPos, LRESULT *re
              return true;
          }
          if (localPos.y() < 0) {
@@ -10638,10 +10734,10 @@ index 8fe8b1c6d7..07367efe01 100644
  QT_BEGIN_NAMESPACE
  
 diff --git a/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp b/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
-index 283a5bdaa9..6eb55bad40 100644
+index 969e53b8e1..4530de2d2a 100644
 --- a/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
 +++ b/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
-@@ -3959,6 +3959,21 @@ void QWindowsVistaStyle::drawComplexControl(ComplexControl control, const QStyle
+@@ -3954,6 +3954,21 @@ void QWindowsVistaStyle::drawComplexControl(ComplexControl control, const QStyle
                      theme.partId = flags & State_Horizontal ? SBP_THUMBBTNHORZ : SBP_THUMBBTNVERT;
                      theme.stateId = stateId;
                      d->drawBackground(theme);
@@ -10663,7 +10759,7 @@ index 283a5bdaa9..6eb55bad40 100644
                  }
              }
          }
-@@ -5006,4 +5021,20 @@ QIcon QWindowsVistaStyle::standardIcon(StandardPixmap standardIcon,
+@@ -5009,4 +5024,20 @@ QIcon QWindowsVistaStyle::standardIcon(StandardPixmap standardIcon,
      return QWindowsStyle::standardIcon(standardIcon, option, widget);
  }
  
