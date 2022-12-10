@@ -2,9 +2,6 @@
 
 @echo off
 
-rem Remove the output folder for a fresh compile.
-rd /s /q "%~dp0Output"
-
 set VisualStudioInstallerFolder="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer"
 if %PROCESSOR_ARCHITECTURE%==x86 set VisualStudioInstallerFolder="%ProgramFiles%\Microsoft Visual Studio\Installer"
 
@@ -18,6 +15,11 @@ call "%VisualStudioInstallDir%\VC\Auxiliary\Build\vcvarsall.bat" amd64
 
 set ObjectFolder="%~dp0Output\Objects\x64"
 set BinaryFolder="%~dp0Output\Binaries\x64"
+
+rem Remove the output folder for a fresh compile.
+rd /s /q %ObjectFolder%
+rd /s /q %BinaryFolder%
+
 mkdir %BinaryFolder%
 
 set PATH=%~dp0qtbase\bin;%PATH%
