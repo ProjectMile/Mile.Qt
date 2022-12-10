@@ -76,4 +76,14 @@ ninja install
 if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
 popd
 
+mkdir %ObjectFolder%\qttranslations
+pushd %ObjectFolder%\qttranslations
+cmake -DCMAKE_PREFIX_PATH=%BinaryFolder% -DCMAKE_INSTALL_PREFIX=%BinaryFolder% %CommonOptions% ../../../../qttranslations
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+cmake --build . --parallel
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+ninja install
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+popd
+
 @endlocal
