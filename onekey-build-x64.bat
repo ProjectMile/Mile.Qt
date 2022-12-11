@@ -86,6 +86,16 @@ ninja install
 if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
 popd
 
+mkdir %ObjectFolder%\qtdeclarative
+pushd %ObjectFolder%\qtdeclarative
+cmake -DCMAKE_PREFIX_PATH=%BinaryFolder% -DCMAKE_INSTALL_PREFIX=%BinaryFolder% %CommonOptions% ../../../../qtdeclarative
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+cmake --build . --parallel
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+ninja install
+if %ERRORLEVEL% NEQ 0 exit /B %ERRORLEVEL%
+popd
+
 mkdir %ObjectFolder%\qttools
 pushd %ObjectFolder%\qttools
 cmake -DCMAKE_PREFIX_PATH=%BinaryFolder% -DCMAKE_INSTALL_PREFIX=%BinaryFolder% %CommonOptions% ../../../../qttools
