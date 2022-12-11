@@ -22,3 +22,6 @@
 [submodule "qtshadertools"]
 	path = qtshadertools
 	url = https://github.com/qt/qtshadertools
+[submodule "qtlanguageserver"]
+	path = qtlanguageserver
+	url = https://github.com/qt/qtlanguageserver
