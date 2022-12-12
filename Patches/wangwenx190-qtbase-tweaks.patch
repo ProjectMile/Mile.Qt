@@ -1,4 +1,4 @@
-From a1bd76447246a30be2e78a13f298a5cba814facd Mon Sep 17 00:00:00 2001
+From 2aab993b299d02cdc646cac80245188bb80bf6d6 Mon Sep 17 00:00:00 2001
 From: Yuhang Zhao <2546789017@qq.com>
 Date: Fri, 17 Jun 2022 20:33:03 +0800
 Subject: [PATCH] wangwenx190: Custom tweaks
@@ -1012,7 +1012,7 @@ index 0893e9dd35..e82f832817 100644
  // We mean it.
  //
 diff --git a/src/gui/CMakeLists.txt b/src/gui/CMakeLists.txt
-index b72e65dd28..7d924ea763 100644
+index a8e4d12718..e1ab0ca9a2 100644
 --- a/src/gui/CMakeLists.txt
 +++ b/src/gui/CMakeLists.txt
 @@ -433,7 +433,6 @@ qt_internal_extend_target(Gui CONDITION WIN32
@@ -7398,7 +7398,7 @@ index 4bd58fd23d..0000000000
 -#endif
 diff --git a/src/plugins/platforms/minimal/qminimalintegration.cpp b/src/plugins/platforms/minimal/qminimalintegration.cpp
 deleted file mode 100644
-index 240d943f4d..0000000000
+index 4679967431..0000000000
 --- a/src/plugins/platforms/minimal/qminimalintegration.cpp
 +++ /dev/null
 @@ -1,173 +0,0 @@
@@ -7410,11 +7410,11 @@ index 240d943f4d..0000000000
 -
 -#include <QtGui/private/qpixmap_raster_p.h>
 -#include <QtGui/private/qguiapplication_p.h>
+-#include <qpa/qplatformfontdatabase.h>
 -#include <qpa/qplatformnativeinterface.h>
 -#include <qpa/qplatformwindow.h>
 -#include <qpa/qwindowsysteminterface.h>
 -
--#include <QtGui/private/qfreetypefontdatabase_p.h>
 -#if defined(Q_OS_WIN)
 -#  include <QtGui/private/qwindowsfontdatabase_p.h>
 -#  if QT_CONFIG(freetype)
@@ -7426,11 +7426,11 @@ index 240d943f4d..0000000000
 -
 -#if QT_CONFIG(fontconfig)
 -#  include <QtGui/private/qgenericunixfontdatabase_p.h>
--#  include <qpa/qplatformfontdatabase.h>
 -#endif
 -
 -#if QT_CONFIG(freetype)
 -#include <QtGui/private/qfontengine_ft_p.h>
+-#include <QtGui/private/qfreetypefontdatabase_p.h>
 -#endif
 -
 -#if !defined(Q_OS_WIN)
@@ -9828,7 +9828,7 @@ index 93205259f8..9f5f73588c 100644
              }
          } else {
 diff --git a/src/plugins/platforms/windows/qwindowsintegration.cpp b/src/plugins/platforms/windows/qwindowsintegration.cpp
-index 1bddcb4363..b44f290c88 100644
+index 51f040e719..689d3601f9 100644
 --- a/src/plugins/platforms/windows/qwindowsintegration.cpp
 +++ b/src/plugins/platforms/windows/qwindowsintegration.cpp
 @@ -229,8 +229,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
@@ -9842,8 +9842,8 @@ index 1bddcb4363..b44f290c88 100644
 +        QtWindows::ProcessPerMonitorV2DpiAware : QtWindows::ProcessPerMonitorDpiAware;
  
      int tabletAbsoluteRange = -1;
-     DarkModeHandling darkModeHandling = DarkModeHandlingFlag::DarkModeWindowFrames;
-@@ -248,10 +250,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
+     DarkModeHandling darkModeHandling = DarkModeHandlingFlag::DarkModeWindowFrames
+@@ -249,10 +251,10 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
  
      if (!dpiAwarenessSet) { // Set only once in case of repeated instantiations of QGuiApplication.
          if (!QCoreApplication::testAttribute(Qt::AA_PluginApplication)) {
@@ -9857,7 +9857,7 @@ index 1bddcb4363..b44f290c88 100644
                      dpiAwarenessSet = true;
                  } else {
                      // fallback to old API
-@@ -260,12 +262,23 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
+@@ -261,12 +263,23 @@ void QWindowsIntegrationPrivate::parseOptions(QWindowsIntegration *q, const QStr
              }
  
              if (!dpiAwarenessSet) {
