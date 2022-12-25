@@ -11,7 +11,7 @@ Customized version of Qt 6.
 ## System Requirements
 
 - Supported OS: Windows 7 with Service Pack 1 (Build 7601) or later
-- Supported Platforms: x86 and x86-64(AMD64).
+- Supported Platforms: x86, x86-64(AMD64) and ARM64.
 
 Note: ARM64 support will be added in the recent days.
 
