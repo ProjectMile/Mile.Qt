@@ -13,6 +13,7 @@
 [submodule "qtsvg"]
 	path = qtsvg
 	url = https://github.com/qt/qtsvg
+	branch = 6.5
 [submodule "qttools"]
 	path = qttools
 	url = https://github.com/qt/qttools
