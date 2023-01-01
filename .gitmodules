@@ -33,3 +33,4 @@
 [submodule "qtlanguageserver"]
 	path = qtlanguageserver
 	url = https://github.com/qt/qtlanguageserver
+	branch = 6.5
