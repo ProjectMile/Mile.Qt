@@ -25,6 +25,7 @@
 [submodule "qtdeclarative"]
 	path = qtdeclarative
 	url = https://github.com/qt/qtdeclarative
+	branch = 6.5
 [submodule "qtshadertools"]
 	path = qtshadertools
 	url = https://github.com/qt/qtshadertools
