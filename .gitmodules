@@ -21,6 +21,7 @@
 [submodule "qttranslations"]
 	path = qttranslations
 	url = https://github.com/qt/qttranslations
+	branch = 6.5
 [submodule "qtdeclarative"]
 	path = qtdeclarative
 	url = https://github.com/qt/qtdeclarative
