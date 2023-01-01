@@ -5,6 +5,7 @@
 [submodule "qtactiveqt"]
 	path = qtactiveqt
 	url = https://github.com/qt/qtactiveqt
+	branch = 6.5
 [submodule "qtimageformats"]
 	path = qtimageformats
 	url = https://github.com/qt/qtimageformats
