@@ -9,6 +9,7 @@
 [submodule "qtimageformats"]
 	path = qtimageformats
 	url = https://github.com/qt/qtimageformats
+	branch = 6.5
 [submodule "qtsvg"]
 	path = qtsvg
 	url = https://github.com/qt/qtsvg
