@@ -1,6 +1,7 @@
 [submodule "qtbase"]
 	path = qtbase
 	url = https://github.com/qt/qtbase
+	branch = 6.5
 [submodule "qtactiveqt"]
 	path = qtactiveqt
 	url = https://github.com/qt/qtactiveqt
