@@ -17,6 +17,7 @@
 [submodule "qttools"]
 	path = qttools
 	url = https://github.com/qt/qttools
+	branch = 6.5
 [submodule "qttranslations"]
 	path = qttranslations
 	url = https://github.com/qt/qttranslations
