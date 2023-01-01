@@ -29,6 +29,7 @@
 [submodule "qtshadertools"]
 	path = qtshadertools
 	url = https://github.com/qt/qtshadertools
+	branch = 6.5
 [submodule "qtlanguageserver"]
 	path = qtlanguageserver
 	url = https://github.com/qt/qtlanguageserver
