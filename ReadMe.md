@@ -4,7 +4,7 @@ Customized version of Qt 6.
 
 ## Features
 
-- Support Windows 7 with Service Pack 1 (Build 7601) with Yuhang Zhao's patch.
+- Support Windows Vista RTM (Build 6000) with Yuhang Zhao's patch.
 - Use [VC-LTL 5.x](https://github.com/Chuyu-Team/VC-LTL5) toolchain to make the
   binary size smaller.
 - Use [YY-Thunks](https://github.com/Chuyu-Team/YY-Thunks) toolchain to achieve
