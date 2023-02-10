@@ -1,0 +1,69 @@
+﻿name: Build Binaries
+
+on: workflow_dispatch
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    env:
+      POWERSHELL_TELEMETRY_OPTOUT: 1
+    steps:
+    - name: Clone repository
+      shell: cmd
+      run: |
+          mkdir C:\MileWorkspaces
+          cd /d C:\MileWorkspaces
+          git clone --recurse-submodules --depth 1 --shallow-submodules --branch main --single-branch --no-tags --progress --verbose https://github.com/ProjectMile/Mile.Qt
+    - name: Set up VC-LTL
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: call C:\MileWorkspaces\Mile.Qt\.github\workflows\setup-vc-ltl.bat
+    - name: Set up YY-Thunks
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: call C:\MileWorkspaces\Mile.Qt\.github\workflows\setup-yy-thunks.bat
+    - name: Build Mile.Qt
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: |
+          git config --global user.email "ci@github-actions.com"
+          git config --global user.name "GitHub Actions"
+          call C:\MileWorkspaces\Mile.Qt\apply-patches.bat
+          set YYTHUNKS_INSTALL_DIR=C:\MileWorkspaces\Mile.Qt\.github\YY-Thunks
+          call C:\MileWorkspaces\Mile.Qt\onekey-build-x64.bat
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Mile.Qt
+        path: C:\MileWorkspaces\Mile.Qt\Output\Binaries
+  windows-x86:
+    runs-on: windows-latest
+    env:
+      POWERSHELL_TELEMETRY_OPTOUT: 1
+    steps:
+    - name: Clone repository
+      shell: cmd
+      run: |
+          mkdir C:\MileWorkspaces
+          cd /d C:\MileWorkspaces
+          git clone --recurse-submodules --depth 1 --shallow-submodules --branch main --single-branch --no-tags --progress --verbose https://github.com/ProjectMile/Mile.Qt
+    - name: Set up VC-LTL
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: call C:\MileWorkspaces\Mile.Qt\.github\workflows\setup-vc-ltl.bat
+    - name: Set up YY-Thunks
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: call C:\MileWorkspaces\Mile.Qt\.github\workflows\setup-yy-thunks.bat
+    - name: Build Mile.Qt
+      shell: cmd
+      working-directory: C:\MileWorkspaces\Mile.Qt
+      run: |
+          git config --global user.email "ci@github-actions.com"
+          git config --global user.name "GitHub Actions"
+          call C:\MileWorkspaces\Mile.Qt\apply-patches.bat
+          set YYTHUNKS_INSTALL_DIR=C:\MileWorkspaces\Mile.Qt\.github\YY-Thunks
+          call C:\MileWorkspaces\Mile.Qt\onekey-build-x86.bat
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Mile.Qt
+        path: C:\MileWorkspaces\Mile.Qt\Output\Binaries
