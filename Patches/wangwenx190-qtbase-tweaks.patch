@@ -1,4 +1,4 @@
-From 3719423934dac08273602f0cef162ae59be5d73a Mon Sep 17 00:00:00 2001
+From 6f1e6289b0dee11f29caf18fca9cbb95cd98def1 Mon Sep 17 00:00:00 2001
 From: Yuhang Zhao <2546789017@qq.com>
 Date: Fri, 17 Jun 2022 20:33:03 +0800
 Subject: [PATCH] wangwenx190: Custom tweaks
@@ -15,7 +15,7 @@ Important changes list:
 08. Win32: Add environment variable to disable bitmap redirection.
 09. Win32: Restore Windows 7 compatibility (QtMutex & QtRhi & QPA).
 10. MSVC: Add support for VC-LTL.
-11. MSVC: Add support for YY-Thunks.
+11. MSVC: Add support for YY-Thunks (can help Qt support Windows Vista RTM).
 12. Other minor tweaks.
 
 Signed-off-by: Yuhang Zhao <2546789017@qq.com>
@@ -43,7 +43,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  src/corelib/kernel/qcoreapplication.cpp       |  39 ++
  src/corelib/kernel/qeventdispatcher_win.cpp   |  12 +-
  src/corelib/kernel/qfunctions_win.cpp         |  10 +-
- src/corelib/plugin/qsystemlibrary.cpp         |  39 +-
+ src/corelib/plugin/qsystemlibrary.cpp         |  46 +-
  src/corelib/text/qlocale_win.cpp              |  23 +-
  src/corelib/thread/qfutex_p.h                 |  76 ++-
  src/corelib/thread/qlocking_p.h               |   7 +-
@@ -90,7 +90,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  src/widgets/dialogs/qwizard.cpp               |  72 ++-
  src/widgets/dialogs/qwizard_win.cpp           | 287 ++++++----
  src/widgets/dialogs/qwizard_win_p.h           |  10 +-
- 70 files changed, 2283 insertions(+), 806 deletions(-)
+ 70 files changed, 2286 insertions(+), 810 deletions(-)
  create mode 100644 build-test.bat
  create mode 100644 cmake/VC-LTL.cmake
  create mode 100644 cmake/YY-Thunks.cmake
@@ -119,10 +119,10 @@ index 0000000000..fac6bf0c14
 +pause
 +exit /b 0
 diff --git a/cmake/QtBaseGlobalTargets.cmake b/cmake/QtBaseGlobalTargets.cmake
-index cc551ed08f..a099c5b416 100644
+index 6a885fc4ce..286cbfe720 100644
 --- a/cmake/QtBaseGlobalTargets.cmake
 +++ b/cmake/QtBaseGlobalTargets.cmake
-@@ -286,6 +286,8 @@ qt_copy_or_install(FILES
+@@ -287,6 +287,8 @@ qt_copy_or_install(FILES
                     cmake/QtWasmHelpers.cmake
                     cmake/QtWrapperScriptHelpers.cmake
                     cmake/QtWriteArgsFile.cmake
@@ -132,10 +132,10 @@ index cc551ed08f..a099c5b416 100644
                     cmake/modulecppexports_p.h.in
                     cmake/qbatchedtestrunner.in.cpp
 diff --git a/cmake/QtBuild.cmake b/cmake/QtBuild.cmake
-index 13772fce86..c52eb29510 100644
+index 6bf4a9edd5..a570b053bf 100644
 --- a/cmake/QtBuild.cmake
 +++ b/cmake/QtBuild.cmake
-@@ -570,3 +570,12 @@ _qt_internal_find_host_info_package("${__qt_build_requires_host_info_package}")
+@@ -573,3 +573,12 @@ _qt_internal_find_host_info_package("${__qt_build_requires_host_info_package}")
  if(CMAKE_VERSION VERSION_LESS "3.19.0")
      variable_watch(CMAKE_CURRENT_LIST_DIR qt_watch_current_list_dir)
  endif()
@@ -509,10 +509,10 @@ index 5450b2562c..0bfc75636b 100644
  qt_commandline_option(make TYPE addString VALUES examples libs tests tools
                        benchmarks manual-tests minimal-static-tests)
 diff --git a/src/corelib/CMakeLists.txt b/src/corelib/CMakeLists.txt
-index d9519bd003..38dbf81763 100644
+index f9dd14e4ff..af744508a3 100644
 --- a/src/corelib/CMakeLists.txt
 +++ b/src/corelib/CMakeLists.txt
-@@ -544,9 +544,8 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_animation
+@@ -487,9 +487,8 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_animation
  # from the wrong DLL at runtime and crash!
  qt_internal_extend_target(Core CONDITION QT_FEATURE_thread AND WIN32
      SOURCES
@@ -523,7 +523,7 @@ index d9519bd003..38dbf81763 100644
  )
  
  qt_internal_extend_target(Core CONDITION WIN32
-@@ -824,12 +823,6 @@ qt_internal_extend_target(Core CONDITION WIN32
+@@ -756,12 +755,6 @@ qt_internal_extend_target(Core CONDITION WIN32
          text/qlocale_win.cpp
  )
  
@@ -536,14 +536,14 @@ index d9519bd003..38dbf81763 100644
  qt_internal_extend_target(Core CONDITION QT_FEATURE_icu
      SOURCES
          text/qcollator_icu.cpp
-@@ -1346,6 +1339,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf AND QT_FEATURE_library
+@@ -1282,6 +1275,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf AND QT_FEATURE_library
  set_source_files_properties(
      thread/qmutex_mac.cpp
      thread/qmutex_unix.cpp
 +    thread/qmutex_win.cpp
      PROPERTIES HEADER_FILE_ONLY ON)  # special case: These files are included by qmutex.cpp!
  
- 
+ set_source_files_properties(serialization/qcborstreamwriter.cpp # CBOR macro clashes
 diff --git a/src/corelib/global/qlibraryinfo.cpp b/src/corelib/global/qlibraryinfo.cpp
 index 715bda488c..6973de9d76 100644
 --- a/src/corelib/global/qlibraryinfo.cpp
@@ -737,7 +737,7 @@ index a209fb17b6..50edb719fd 100644
                  // If the current host OS is a domain controller and the override OS
                  // is also a server type OS, preserve that information
 diff --git a/src/corelib/global/qsysinfo.cpp b/src/corelib/global/qsysinfo.cpp
-index 0502e77177..7860334ea0 100644
+index dace55b6ce..45918ca797 100644
 --- a/src/corelib/global/qsysinfo.cpp
 +++ b/src/corelib/global/qsysinfo.cpp
 @@ -165,12 +165,17 @@ static inline QString windowsDisplayVersion()
@@ -801,10 +801,10 @@ index 0502e77177..7860334ea0 100644
  #elif defined(Q_OS_HAIKU)
      return "Haiku "_L1 + productVersion();
 diff --git a/src/corelib/io/qfilesystemengine_win.cpp b/src/corelib/io/qfilesystemengine_win.cpp
-index 9cfa1d7b7d..34875edc73 100644
+index fbc55954cb..950b390be1 100644
 --- a/src/corelib/io/qfilesystemengine_win.cpp
 +++ b/src/corelib/io/qfilesystemengine_win.cpp
-@@ -1034,7 +1034,10 @@ QByteArray QFileSystemEngine::id(const QFileSystemEntry &entry)
+@@ -1074,7 +1074,10 @@ QByteArray QFileSystemEngine::id(const QFileSystemEntry &entry)
  //static
  QByteArray QFileSystemEngine::id(HANDLE fHandle)
  {
@@ -816,7 +816,7 @@ index 9cfa1d7b7d..34875edc73 100644
  }
  
  //static
-@@ -1754,41 +1757,76 @@ bool QFileSystemEngine::moveFileToTrash(const QFileSystemEntry &source,
+@@ -1793,41 +1796,76 @@ bool QFileSystemEngine::moveFileToTrash(const QFileSystemEntry &source,
      // we need the "display name" of the file, so can't use nativeAbsoluteFilePath
      const QString sourcePath = QDir::toNativeSeparators(absoluteName(source).filePath());
  
@@ -1004,7 +1004,7 @@ index 13b8fe224a..581e2695fe 100644
      const auto process_token = HANDLE(quintptr(-4));
  
 diff --git a/src/corelib/kernel/qcoreapplication.cpp b/src/corelib/kernel/qcoreapplication.cpp
-index 096c2b1d2e..d87d8bcb91 100644
+index 093f01e5c4..22fe706782 100644
 --- a/src/corelib/kernel/qcoreapplication.cpp
 +++ b/src/corelib/kernel/qcoreapplication.cpp
 @@ -36,6 +36,7 @@
@@ -1015,9 +1015,9 @@ index 096c2b1d2e..d87d8bcb91 100644
  #include <private/qfactoryloader_p.h>
  #include <private/qfunctions_p.h>
  #include <private/qlocale_p.h>
-@@ -108,6 +109,10 @@ QT_BEGIN_NAMESPACE
- 
- using namespace Qt::StringLiterals;
+@@ -121,6 +122,10 @@ Q_TRACE_POINT(qtcore, QCoreApplication_sendSpontaneousEvent, QObject *receiver,
+ Q_TRACE_POINT(qtcore, QCoreApplication_notify_entry, QObject *receiver, QEvent *event, QEvent::Type type);
+ Q_TRACE_POINT(qtcore, QCoreApplication_notify_exit, bool consumed, bool filtered);
  
 +#ifndef QT_BOOTSTRAPPED
 +static constexpr const char kWwx190EnvVar[] = "__wangwenx190__";
@@ -1026,7 +1026,7 @@ index 096c2b1d2e..d87d8bcb91 100644
  #if defined(Q_OS_WIN) || defined(Q_OS_MAC)
  extern QString qAppFileName();
  #endif
-@@ -446,6 +451,9 @@ QCoreApplicationPrivate::QCoreApplicationPrivate(int &aargc, char **aargv)
+@@ -459,6 +464,9 @@ QCoreApplicationPrivate::QCoreApplicationPrivate(int &aargc, char **aargv)
  
  QCoreApplicationPrivate::~QCoreApplicationPrivate()
  {
@@ -1036,7 +1036,7 @@ index 096c2b1d2e..d87d8bcb91 100644
  #ifndef QT_NO_QOBJECT
      cleanupThreadData();
  #endif
-@@ -568,6 +576,33 @@ void QCoreApplicationPrivate::initConsole()
+@@ -581,6 +589,33 @@ void QCoreApplicationPrivate::initConsole()
          // Unknown input, don't make any decision for the user.
          return;
      }
@@ -1070,7 +1070,7 @@ index 096c2b1d2e..d87d8bcb91 100644
      // The std{in,out,err} handles are read-only, so we need to pass in dummies.
      FILE *in = nullptr;
      FILE *out = nullptr;
-@@ -786,6 +821,10 @@ void QCoreApplicationPrivate::init()
+@@ -799,6 +834,10 @@ void Q_TRACE_INSTRUMENT(qtcore) QCoreApplicationPrivate::init()
      Q_ASSERT_X(!QCoreApplication::self, "QCoreApplication", "there should be only one application object");
      QCoreApplication::self = q;
  
@@ -1155,7 +1155,7 @@ index ed0e25467c..2022ff2f24 100644
              return true;
          case APPMODEL_ERROR_NO_PACKAGE:
 diff --git a/src/corelib/plugin/qsystemlibrary.cpp b/src/corelib/plugin/qsystemlibrary.cpp
-index d3dff226d9..22b4f04340 100644
+index d3dff226d9..44129a432c 100644
 --- a/src/corelib/plugin/qsystemlibrary.cpp
 +++ b/src/corelib/plugin/qsystemlibrary.cpp
 @@ -42,9 +42,9 @@ using namespace Qt::StringLiterals;
@@ -1163,30 +1163,41 @@ index d3dff226d9..22b4f04340 100644
  #endif
  
 -static QString qSystemDirectory()
-+static inline QString qSystemDirectory()
++[[nodiscard]] static inline QString qSystemDirectory()
  {
 -    static const QString result = []() -> QString {
 +    static const auto result = []() -> QString {
          QVarLengthArray<wchar_t, MAX_PATH> fullPath = {};
          UINT retLen = ::GetSystemDirectoryW(fullPath.data(), MAX_PATH);
          if (retLen > MAX_PATH) {
-@@ -57,10 +57,32 @@ static QString qSystemDirectory()
-     return result;
- }
- 
-+static inline bool isLoadFromSystem32Available()
+@@ -52,15 +52,39 @@ static QString qSystemDirectory()
+             retLen = ::GetSystemDirectoryW(fullPath.data(), retLen);
+         }
+         // in some rare cases retLen might be 0
+-        return QString::fromWCharArray(fullPath.constData(), int(retLen));
++        QString path = QString::fromWCharArray(fullPath.constData(), int(retLen));
++        // Remove any trailing line separators.
++        while (path.endsWith(u'\\') || path.endsWith(u'/'))
++            path.chop(1);
++        return path;
++    }();
++    return result;
++}
++
++[[nodiscard]] static inline bool isLoadFromSystem32Available()
 +{
 +    static const auto result = []() -> bool {
-+        const HMODULE library = ::LoadLibraryW(L"kernel32");
++        const QString filePath = qSystemDirectory() + u"\\kernel32.dll"_s;
++        const HMODULE library = ::LoadLibraryW(reinterpret_cast<const wchar_t *>(filePath.utf16()));
 +        if (!library)
 +            return false;
 +        const bool ret = ::GetProcAddress(library, "AddDllDirectory") != nullptr;
 +        ::FreeLibrary(library);
 +        return ret;
-+    }();
-+    return result;
-+}
-+
+     }();
+     return result;
+ }
+ 
  HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirectory /* = true */)
  {
 -    if (onlySystemDirectory)
@@ -1196,16 +1207,13 @@ index d3dff226d9..22b4f04340 100644
 +    if (onlySystemDirectory) {
 +        if (isLoadFromSystem32Available())
 +            return ::LoadLibraryExW(libraryName, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
-+        QString path = qSystemDirectory();
-+        if (!path.endsWith(u'\\'))
-+            path.append(u'\\');
-+        path.append(fileName);
++        const QString path = qSystemDirectory() + u'\\' + fileName;
 +        return ::LoadLibraryW(reinterpret_cast<const wchar_t *>(path.utf16()));
 +    }
  
      QStringList searchOrder;
  
-@@ -72,16 +94,13 @@ HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirect
+@@ -72,17 +96,11 @@ HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirect
      const QString PATH(QLatin1StringView(qgetenv("PATH")));
      searchOrder << PATH.split(u';', Qt::SkipEmptyParts);
  
@@ -1216,15 +1224,16 @@ index d3dff226d9..22b4f04340 100644
 +    for (int i = 0; i != searchOrder.count(); ++i) {
          QString fullPathAttempt = searchOrder.at(i);
 -        if (!fullPathAttempt.endsWith(u'\\')) {
-+        if (!fullPathAttempt.endsWith(u'\\'))
-             fullPathAttempt.append(u'\\');
+-            fullPathAttempt.append(u'\\');
 -        }
-         fullPathAttempt.append(fileName);
+-        fullPathAttempt.append(fileName);
 -        HINSTANCE inst = ::LoadLibrary(reinterpret_cast<const wchar_t *>(fullPathAttempt.utf16()));
-+        const HINSTANCE inst = ::LoadLibraryW(reinterpret_cast<const wchar_t *>(fullPathAttempt.utf16()));
-         if (inst != nullptr)
+-        if (inst != nullptr)
++        fullPathAttempt += u'\\' + fileName;
++        if (const HINSTANCE inst = ::LoadLibraryW(reinterpret_cast<const wchar_t *>(fullPathAttempt.utf16())))
              return inst;
      }
+     return nullptr;
 diff --git a/src/corelib/text/qlocale_win.cpp b/src/corelib/text/qlocale_win.cpp
 index 550f7dd464..036b3c2a3f 100644
 --- a/src/corelib/text/qlocale_win.cpp
@@ -1495,7 +1504,7 @@ index cfb36ca30b..01bb000366 100644
  // We mean it.
  //
 diff --git a/src/gui/CMakeLists.txt b/src/gui/CMakeLists.txt
-index e1b1f5859d..f94a9b0eee 100644
+index 96a1ae4bd5..6a6ac13002 100644
 --- a/src/gui/CMakeLists.txt
 +++ b/src/gui/CMakeLists.txt
 @@ -416,12 +416,6 @@ qt_internal_extend_target(Gui CONDITION WIN32
@@ -2390,7 +2399,7 @@ index 3f4d8e8e31..f88c6d047f 100644
      bool deviceLost = false;
      QRhiD3D11NativeHandles nativeHandlesStruct;
 diff --git a/src/gui/rhi/qrhid3d12.cpp b/src/gui/rhi/qrhid3d12.cpp
-index 3e8596bf99..186d9ed455 100644
+index 5630aa852b..f43ff1cc2e 100644
 --- a/src/gui/rhi/qrhid3d12.cpp
 +++ b/src/gui/rhi/qrhid3d12.cpp
 @@ -20,8 +20,54 @@ QT_BEGIN_NAMESPACE
@@ -3027,10 +3036,10 @@ index 5b0a91df3e..ec2207f833 100644
      ConnectionProfile profile = nullptr;
      try {
 diff --git a/src/plugins/platforms/CMakeLists.txt b/src/plugins/platforms/CMakeLists.txt
-index dfbec51877..34107a6741 100644
+index bcf29dedd1..4095e3f023 100644
 --- a/src/plugins/platforms/CMakeLists.txt
 +++ b/src/plugins/platforms/CMakeLists.txt
-@@ -6,12 +6,6 @@
+@@ -4,12 +4,6 @@
  if(ANDROID)
      add_subdirectory(android)
  endif()
@@ -3043,7 +3052,7 @@ index dfbec51877..34107a6741 100644
  if(QT_FEATURE_xcb)
      add_subdirectory(xcb)
  endif()
-@@ -24,9 +18,6 @@ endif()
+@@ -22,9 +16,6 @@ endif()
  if(WIN32)
      add_subdirectory(windows)
  endif()
@@ -3054,10 +3063,10 @@ index dfbec51877..34107a6741 100644
      add_subdirectory(qnx)
  endif()
 diff --git a/src/plugins/platforms/windows/CMakeLists.txt b/src/plugins/platforms/windows/CMakeLists.txt
-index 7884fc164e..138c91025e 100644
+index 33ccbf6a0a..4422629ec8 100644
 --- a/src/plugins/platforms/windows/CMakeLists.txt
 +++ b/src/plugins/platforms/windows/CMakeLists.txt
-@@ -51,7 +51,6 @@ qt_internal_add_plugin(QWindowsIntegrationPlugin
+@@ -49,7 +49,6 @@ qt_internal_add_plugin(QWindowsIntegrationPlugin
          Qt::Gui
          Qt::GuiPrivate
          advapi32
@@ -3065,7 +3074,7 @@ index 7884fc164e..138c91025e 100644
          gdi32
          imm32
          ole32
-@@ -62,10 +61,7 @@ qt_internal_add_plugin(QWindowsIntegrationPlugin
+@@ -60,10 +59,7 @@ qt_internal_add_plugin(QWindowsIntegrationPlugin
          winmm
          winspool
          wtsapi32
@@ -3076,7 +3085,7 @@ index 7884fc164e..138c91025e 100644
  )
  
  # Resources:
-@@ -198,6 +194,8 @@ qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION QT_FEATURE_accessi
+@@ -189,6 +185,8 @@ qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION QT_FEATURE_accessi
          uiautomation/qwindowsuiautils.cpp uiautomation/qwindowsuiautils.h
          uiautomation/qwindowsuiavalueprovider.cpp uiautomation/qwindowsuiavalueprovider.h
          uiautomation/qwindowsuiawindowprovider.cpp uiautomation/qwindowsuiawindowprovider.h
@@ -4163,7 +4172,7 @@ index 3bad237f9e..7a9b2c5b07 100644
  
      QWindowsHwndSystemTrayIconEntry entry{m_hwnd, this};
 diff --git a/src/plugins/platforms/windows/qwindowstheme.cpp b/src/plugins/platforms/windows/qwindowstheme.cpp
-index 7535c7a583..f62881fe28 100644
+index 29c4c47c36..706788f126 100644
 --- a/src/plugins/platforms/windows/qwindowstheme.cpp
 +++ b/src/plugins/platforms/windows/qwindowstheme.cpp
 @@ -39,6 +39,7 @@
@@ -4887,7 +4896,7 @@ index 8fe8b1c6d7..07367efe01 100644
  QT_BEGIN_NAMESPACE
  
 diff --git a/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp b/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
-index f884afc5b4..fc0ec6c397 100644
+index e90d1c0925..2c80a0c1f2 100644
 --- a/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
 +++ b/src/plugins/styles/windowsvista/qwindowsvistastyle.cpp
 @@ -3945,6 +3945,21 @@ void QWindowsVistaStyle::drawComplexControl(ComplexControl control, const QStyle
@@ -5011,10 +5020,10 @@ index e461ab6294..e6e6cd433b 100644
      case Python_Code:
          writeString("qt_resource_struct = b\"\\\n");
 diff --git a/src/widgets/CMakeLists.txt b/src/widgets/CMakeLists.txt
-index a3e5a6c713..7f24b2c955 100644
+index ed9086e19a..292ba6092b 100644
 --- a/src/widgets/CMakeLists.txt
 +++ b/src/widgets/CMakeLists.txt
-@@ -328,7 +328,6 @@ qt_internal_extend_target(Widgets CONDITION MACOS
+@@ -322,7 +322,6 @@ qt_internal_extend_target(Widgets CONDITION MACOS
  
  qt_internal_extend_target(Widgets CONDITION WIN32
      LIBRARIES
