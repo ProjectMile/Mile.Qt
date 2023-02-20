@@ -24,7 +24,7 @@ mkdir %BinaryFolder%
 
 set PATH=%~dp0qtbase\bin;%PATH%
 
-set CommonOptions=-G "Ninja Multi-Config" -DCMAKE_CONFIGURATION_TYPES=Release;Debug -DBUILD_SHARED_LIBS=ON -DQT_BUILD_EXAMPLES=OFF -DQT_BUILD_TESTS=OFF
+set CommonOptions=-G "Ninja Multi-Config" -DCMAKE_CONFIGURATION_TYPES=Release;Debug -DWindowsTargetPlatformMinVersion=6.0.6000.0 -DBUILD_SHARED_LIBS=ON -DQT_BUILD_EXAMPLES=OFF -DQT_BUILD_TESTS=OFF
 
 mkdir %ObjectFolder%\qtbase
 pushd %ObjectFolder%\qtbase
