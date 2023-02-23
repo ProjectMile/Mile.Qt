@@ -18,6 +18,13 @@ without double quotation mark before compile x86 and x64 targets of Mile.Qt.
 
 After set the environment variable, run onekey-build-*.bat which you want.
 
+Here is the simple command line example in Command Prompt:
+
+```
+set YYTHUNKS_INSTALL_DIR=D:\Tools\YY-Thunks
+onekey-build-x64.bat
+```
+
 ## System Requirements
 
 - Supported OS: Windows Vista RTM (Build 6000) or later
