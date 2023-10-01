@@ -1,36 +1,36 @@
 [submodule "qtbase"]
 	path = qtbase
 	url = https://github.com/qt/qtbase
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtactiveqt"]
 	path = qtactiveqt
 	url = https://github.com/qt/qtactiveqt
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtimageformats"]
 	path = qtimageformats
 	url = https://github.com/qt/qtimageformats
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtsvg"]
 	path = qtsvg
 	url = https://github.com/qt/qtsvg
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qttools"]
 	path = qttools
 	url = https://github.com/qt/qttools
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qttranslations"]
 	path = qttranslations
 	url = https://github.com/qt/qttranslations
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtdeclarative"]
 	path = qtdeclarative
 	url = https://github.com/qt/qtdeclarative
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtshadertools"]
 	path = qtshadertools
 	url = https://github.com/qt/qtshadertools
-	branch = 6.5.2
+	branch = 6.5.3
 [submodule "qtlanguageserver"]
 	path = qtlanguageserver
 	url = https://github.com/qt/qtlanguageserver
-	branch = 6.5.2
+	branch = 6.5.3
