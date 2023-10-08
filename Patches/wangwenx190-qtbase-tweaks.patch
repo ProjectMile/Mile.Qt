@@ -1,4 +1,4 @@
-From 7e4a542548237658a3d286e09a231b66222b1046 Mon Sep 17 00:00:00 2001
+From d6025209682809c8223b3f76a00a61e8249d318d Mon Sep 17 00:00:00 2001
 From: Yuhang Zhao <2546789017@qq.com>
 Date: Fri, 17 Jun 2022 20:33:03 +0800
 Subject: [PATCH] wangwenx190: Custom tweaks
@@ -142,8 +142,8 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  src/corelib/thread/qmutex_win.cpp             |   30 +
  src/corelib/thread/qwaitcondition_p.h         |    7 +-
  src/gui/CMakeLists.txt                        |   35 +-
- .../windows/apisupport/qwindowsuiawrapper.cpp |   76 +-
- .../windows/apisupport/qwindowsuiawrapper_p.h |   25 +-
+ .../windows/apisupport/qwindowsuiawrapper.cpp |   67 +-
+ .../windows/apisupport/qwindowsuiawrapper_p.h |   24 +-
  src/gui/image/qimage.cpp                      |    8 +-
  src/gui/image/qimagereader.cpp                |    1 +
  src/gui/kernel/qhighdpiscaling.cpp            |    4 +-
@@ -187,7 +187,7 @@ Signed-off-by: Yuhang Zhao <2546789017@qq.com>
  src/widgets/CMakeLists.txt                    |    1 -
  src/widgets/dialogs/qwizard_win.cpp           |   55 +-
  src/widgets/kernel/qwidget.cpp                |   18 +
- 167 files changed, 51937 insertions(+), 1035 deletions(-)
+ 167 files changed, 51927 insertions(+), 1035 deletions(-)
  create mode 100644 bin/xmlstarlet.exe
  create mode 100644 build-test.bat
  create mode 100644 cmake/FindWrapSystemZSTD.cmake
@@ -79266,10 +79266,10 @@ index 84c51c75cf..e4ed330703 100644
  
  qt_internal_extend_target(Gui CONDITION QT_FEATURE_undocommand
 diff --git a/src/gui/accessible/windows/apisupport/qwindowsuiawrapper.cpp b/src/gui/accessible/windows/apisupport/qwindowsuiawrapper.cpp
-index a5ea7cd498..cc3e6c90e4 100644
+index a5ea7cd498..ce92156656 100644
 --- a/src/gui/accessible/windows/apisupport/qwindowsuiawrapper.cpp
 +++ b/src/gui/accessible/windows/apisupport/qwindowsuiawrapper.cpp
-@@ -8,38 +8,41 @@
+@@ -8,38 +8,32 @@
  
  QT_BEGIN_NAMESPACE
  
@@ -79312,15 +79312,6 @@ index a5ea7cd498..cc3e6c90e4 100644
 +    return TRUE;
 +}
 +
-+HRESULT QWindowsUiaWrapper::raiseNotificationEvent(IRawElementProviderSimple *provider, NotificationKind notificationKind, NotificationProcessing notificationProcessing, BSTR displayString, BSTR activityId)
-+{
-+    using PtrUiaRaiseNotificationEvent = decltype(&::UiaRaiseNotificationEvent);
-+    static const auto pUiaRaiseNotificationEvent = reinterpret_cast<PtrUiaRaiseNotificationEvent>(QSystemLibrary::resolve("UIAutomationCore"_L1, "UiaRaiseNotificationEvent"));
-+    if (!pUiaRaiseNotificationEvent)
-+        return UIA_E_NOTSUPPORTED;
-+    return pUiaRaiseNotificationEvent(provider, notificationKind, notificationProcessing, displayString, activityId);
-+}
-+
 +#ifdef Q_CC_MINGW
 +QWindowsUiaWrapper::QWindowsUiaWrapper()
 +{
@@ -79333,7 +79324,7 @@ index a5ea7cd498..cc3e6c90e4 100644
  }
  
  BOOL QWindowsUiaWrapper::clientsAreListening()
-@@ -76,6 +79,33 @@ HRESULT QWindowsUiaWrapper::raiseAutomationEvent(IRawElementProviderSimple *pPro
+@@ -76,6 +70,33 @@ HRESULT QWindowsUiaWrapper::raiseAutomationEvent(IRawElementProviderSimple *pPro
          return UIA_E_NOTSUPPORTED;
      return m_pUiaRaiseAutomationEvent(pProvider, id);
  }
@@ -79345,7 +79336,7 @@ index a5ea7cd498..cc3e6c90e4 100644
 +{
 +    return UiaClientsAreListening();
 +}
- 
++
 +LRESULT QWindowsUiaWrapper::returnRawElementProvider(HWND hwnd, WPARAM wParam, LPARAM lParam, IRawElementProviderSimple *el)
 +{
 +    return UiaReturnRawElementProvider(hwnd, wParam, lParam, el);
@@ -79355,7 +79346,7 @@ index a5ea7cd498..cc3e6c90e4 100644
 +{
 +    return UiaHostProviderFromHwnd(hwnd, ppProvider);
 +}
-+
+ 
 +HRESULT QWindowsUiaWrapper::raiseAutomationPropertyChangedEvent(IRawElementProviderSimple *pProvider, PROPERTYID id, VARIANT oldValue, VARIANT newValue)
 +{
 +    return UiaRaiseAutomationPropertyChangedEvent(pProvider, id, oldValue, newValue);
@@ -79369,10 +79360,10 @@ index a5ea7cd498..cc3e6c90e4 100644
 +
 +QT_END_NAMESPACE
 diff --git a/src/gui/accessible/windows/apisupport/qwindowsuiawrapper_p.h b/src/gui/accessible/windows/apisupport/qwindowsuiawrapper_p.h
-index 94065c7c79..9f981bf7dd 100644
+index 94065c7c79..a35660435b 100644
 --- a/src/gui/accessible/windows/apisupport/qwindowsuiawrapper_p.h
 +++ b/src/gui/accessible/windows/apisupport/qwindowsuiawrapper_p.h
-@@ -28,6 +28,13 @@
+@@ -28,6 +28,12 @@
  #include "uiaserverinterfaces_p.h"
  #include "uiaclientinterfaces_p.h"
  
@@ -79380,13 +79371,12 @@ index 94065c7c79..9f981bf7dd 100644
 +EXTERN_C HRESULT WINAPI UiaHostProviderFromHwnd(HWND, IRawElementProviderSimple **);
 +EXTERN_C HRESULT WINAPI UiaRaiseAutomationPropertyChangedEvent(IRawElementProviderSimple *, PROPERTYID, VARIANT, VARIANT);
 +EXTERN_C HRESULT WINAPI UiaRaiseAutomationEvent(IRawElementProviderSimple *, EVENTID);
-+EXTERN_C HRESULT WINAPI UiaRaiseNotificationEvent(IRawElementProviderSimple *, NotificationKind, NotificationProcessing, BSTR, BSTR);
 +EXTERN_C BOOL    WINAPI UiaClientsAreListening();
 +
  QT_REQUIRE_CONFIG(accessibility);
  
  QT_BEGIN_NAMESPACE
-@@ -46,19 +53,15 @@ public:
+@@ -46,19 +52,15 @@ public:
      HRESULT raiseAutomationEvent(IRawElementProviderSimple *pProvider, EVENTID id);
  
  private:
