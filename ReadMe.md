@@ -9,6 +9,8 @@ Customized version of Qt 6.
   binary size smaller.
 - Use [YY-Thunks](https://github.com/Chuyu-Team/YY-Thunks) toolchain to achieve
   the Windows Vista RTM (Build 6000) support.
+- Use [qtbase patch 507057](https://codereview.qt-project.org/c/qt/qtbase/+/507057)
+  for solving Qt Widgets margin issue in Windows.
 
 ## Usage
 

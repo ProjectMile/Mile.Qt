@@ -1,0 +1,42 @@
+From 58a6a92f688fccf9e841dea6976409d97a6dd3b0 Mon Sep 17 00:00:00 2001
+From: Santhosh Kumar <santhosh.kumar.selvaraj@qt.io>
+Date: Mon, 25 Sep 2023 11:33:24 +0200
+Subject: [PATCH] Fix margin issue in wizard for windows
+
+The patch set 8dbc4824895ea9f87d1f6406fe2d22336b6253ed extends support in calculating margins when ExtendsContentIntoTitleBar() is used. But this affects existing QWizard that sets custom margins through Aero style. This is because, the custom margins set by Aero style excludes top margin (titleBarSizeDp()) and excluding it once again cause slicing in the client window area.
+
+This patch set fixes it by considering top margin only when system margins is used in windows.
+
+Fixes: QTBUG-117428
+Pick-to: 6.6 6.5
+Change-Id: I6d6eefc691f26474257b58304dac169fba20b5e1
+Reviewed-by: Qt CI Bot <qt_ci_bot@qt-project.org>
+Reviewed-by: Timothée Keller <timothee.keller@qt.io>
+Reviewed-by: Morten Johan Sørvig <morten.sorvig@qt.io>
+---
+
+diff --git a/src/plugins/platforms/windows/qwindowswindow.cpp b/src/plugins/platforms/windows/qwindowswindow.cpp
+index ec38421..c2782fc 100644
+--- a/src/plugins/platforms/windows/qwindowswindow.cpp
++++ b/src/plugins/platforms/windows/qwindowswindow.cpp
+@@ -2788,16 +2788,16 @@
+     RECT clientRect{};
+     GetWindowRect(handle(), &windowRect);
+     GetClientRect(handle(), &clientRect);
+-    const int yDiff = (windowRect.bottom - windowRect.top) - clientRect.bottom;
++    const int yDiff = (windowRect.bottom - windowRect.top) - (clientRect.bottom - clientRect.top);
+     const bool typicalFrame = (systemMargins.left() == systemMargins.right())
+             && (systemMargins.right() == systemMargins.bottom());
+ 
+     const QMargins adjustedMargins = typicalFrame ?
+-          QMargins(systemMargins.left(), yDiff - systemMargins.bottom(),
++          QMargins(systemMargins.left(), (yDiff - systemMargins.bottom()),
+                    systemMargins.right(), systemMargins.bottom())
+-            : systemMargins;
++            : systemMargins + customMargins();
+ 
+-    setFullFrameMargins(adjustedMargins + customMargins());
++    setFullFrameMargins(adjustedMargins);
+ }
+ 
+ QMargins QWindowsWindow::frameMargins() const
