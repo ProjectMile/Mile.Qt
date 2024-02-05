@@ -63,7 +63,7 @@ jobs:
           call C:\MileWorkspaces\Mile.Qt\apply-patches.bat
           set YYTHUNKS_INSTALL_DIR=C:\MileWorkspaces\Mile.Qt\.github\YY-Thunks
           call C:\MileWorkspaces\Mile.Qt\onekey-build-x86.bat
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: Mile.Qt
         path: C:\MileWorkspaces\Mile.Qt\Output\Binaries
